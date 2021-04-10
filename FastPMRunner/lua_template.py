@@ -26,7 +26,7 @@ def simple_lua_string(
     Return a simple lua parameter file with 5 cosmologies
     """
 
-    lua_template = """-- parameter file
+    lua_template = '''-- parameter file
 ------ Size of the simulation -------- 
 
 -- For Testing
@@ -48,7 +48,7 @@ scalar_spectral_index = {scalar_spectral_index}
 -- Start with a linear density field
 -- Power spectrum of the linear density field: k P(k) in Mpc/h units
 -- Must be compatible with the Cosmology parameter
-read_powerspectrum= {read_powerspectrum}
+read_powerspectrum= "{read_powerspectrum}"
 linear_density_redshift = 0.0 -- the redshift of the linear density field.
 random_seed= {seed}
 particle_fraction = 1.0
@@ -66,7 +66,7 @@ np_alloc_factor= 4.0      -- Amount of memory allocated for particle
 
 -------- Output ---------------
 -- 1d power spectrum (raw), without shotnoise correction
-write_powerspectrum = {write_powerspectrum}""".format(
+write_powerspectrum = "{write_powerspectrum}"'''.format(
         nc=npart,
         boxsize=box,
         time_start=time_start,
@@ -82,8 +82,8 @@ write_powerspectrum = {write_powerspectrum}""".format(
     )
 
     if write_runpb_snapshot:
-        lua_template += """-- Dark matter particle outputs (all particles)
-write_runpb_snapshot= "nbodykit/tpm" """
+        lua_template += '''-- Dark matter particle outputs (all particles)
+write_runpb_snapshot= "nbodykit/tpm" '''
     if write_snapshot:
         lua_template += '''write_snapshot = "nbodykit/fastpm"'''
     if write_fof:
