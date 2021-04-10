@@ -1,6 +1,10 @@
 """
 A class to automate the fastpm simulation
 """
+import os
+import subprocess
+
+from .make_pklin import save_powerspec
 
 class SimulationICs(object):
     """
@@ -29,7 +33,7 @@ class SimulationICs(object):
     ns         - Scalar spectral index
     timesteps  - number of time steps for the simulation
     """
-    def __init__(self, *,
+    def __init__(self,
             outdir: str = "nbodykit",   box: int = 384,  npart: int = 128,
             seed :         int   = 100,          redshift: float = 99,
             redend:        float = 0,            omega0:   float = 0.288, 
@@ -38,6 +42,9 @@ class SimulationICs(object):
             fastpm_bin:    str = "fastpm",       timesteps: float = 10,
             python:        str = "python",
             cores:         int = 4) -> None:
+
+        self.outdir = outdir
+
         #Check that input is reasonable and set parameters
         #In Mpc/h
         assert box  < 20000
@@ -69,4 +76,33 @@ class SimulationICs(object):
         assert scalar_amp < 1e-7 and scalar_amp > 0
         self.scalar_amp = scalar_amp
 
+        assert ns > 0 and ns < 2
+        self.ns = ns
+        
         self.seed = seed
+
+        # the folder to store simulation outputs
+        if ~ os.path.exists(self.outdir):
+            os.mkdir(self.outdir)
+
+    def make_pklin(self, outfile: str = "powerspec.txt") -> None:
+        """
+        Make linear power spectrum and save as a file
+        """
+        # save into the same folder as simulation output
+        self.linear_file = os.path.join(self.outdir, outfile)
+
+        save_powerspec(
+            omega0 = self.omega0,
+            omegab = self.omegab,
+            hubble = self.hubble,
+            scalar_amp = self.scalar_amp,
+            ns = self.ns,
+            outfile=self.linear_file,
+        )
+
+    def make_simulation(self) -> None:
+        """
+        Generate .lue input parameter file for fastpm simulation
+        """
+
