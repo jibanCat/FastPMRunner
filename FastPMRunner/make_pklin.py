@@ -14,7 +14,7 @@ def save_powerspec(
     hubble: float = 0.7,
     scalar_amp: float = 2.427e-9,
     ns: float = 0.97,
-    outfile: str = "powerspec.txt",
+    outfile: str = "my_pk_linear.txt",
 ):
     """Generate linear powerspec and save into file"""
     omegacdm = (
