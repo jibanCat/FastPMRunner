@@ -1,3 +1,7 @@
+"""
+Modified from https://github.com/fastpm/fastpm/blob/master/python/make-pklin.py
+"""
+
 from nbodykit.lab import *
 from nbodykit.cosmology import WMAP9, LinearPower, Cosmology
 import numpy
