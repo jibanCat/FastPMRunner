@@ -4,7 +4,9 @@ A class to automate the fastpm simulation
 from typing import Tuple
 
 import os
+import json
 import subprocess
+import numpy as np
 
 from .make_pklin import save_powerspec
 from .lua_template import simple_lua_string
@@ -26,8 +28,11 @@ class SimulationICs(object):
     Init parameters:
     ----
     outdir     - Directory in which to save ICs
-    box        - Box size in comoving Mpc/h
-    npart      - Cube root of number of particles
+    box        - Box size in comoving Mpc/h. Bigger simulation box particles have
+                 less interactions, smaller box the particle interactions will be
+                 more intense.
+    npart      - Cube root of number of particles. This controls the resolution
+                 of a N-body simulation. 
     redshift   - redshift at which to generate ICs
     omegab     - baryon density.
     omegam     - Total matter density at z=0. (omega_m = omega_b + omega_cdm)
@@ -81,6 +86,10 @@ class SimulationICs(object):
         assert redend >= 0 and redend < 1100
         self.redend = redend
 
+        # start/end time in scale factor
+        self.time_start = 1 / (1 + self.redshift)
+        self.time_end = 1 / (1 + self.redend)
+
         self.timesteps = timesteps
 
         assert hubble < 1 and hubble > 0
@@ -129,11 +138,7 @@ class SimulationICs(object):
         if "linear_file" not in dir(self):
             self.make_pklin()
 
-        # start/end time in scale factor
-        time_start = 1 / (1 + self.redshift)
-        time_end = 1 / (1 + self.redend)
-
-        write_powerspectrum = os.path.join(self.outdir, "powerspec")
+        self.write_powerspectrum = os.path.join(self.outdir, "powerspec")
 
         lua_string = simple_lua_string(
             box=self.box,
@@ -144,11 +149,11 @@ class SimulationICs(object):
             hubble=self.hubble,
             scalar_amp=self.scalar_amp,
             ns=self.ns,
-            time_start=time_start,
-            time_end=time_end,
+            time_start=self.time_start,
+            time_end=self.time_end,
             timesteps=self.timesteps,
             read_powerspectrum=self.linear_file,
-            write_powerspectrum=write_powerspectrum,
+            write_powerspectrum=self.write_powerspectrum,
             write_runpb_snapshot=write_runpb_snapshot,
             write_snapshot=write_snapshot,
             write_fof=write_fof,
@@ -172,4 +177,44 @@ class SimulationICs(object):
         with open(os.path.join(self.outdir, "message.out"), "w") as f:
             f.write(output.decode('utf-8'))
 
+        # write parameters into a json file
+        self.to_json()
+
+        # set power spec into variables
+        self.set_powerspec()
+
         return output, error
+
+    def set_powerspec(self):
+        """Set power spectrum"""
+        self._scale_factors = np.linspace(self.time_start, self.time_end, self.timesteps + 1)
+
+        powerspec_fn = lambda scale_factor: "{}_{:.4f}.txt".format(self.write_powerspectrum, scale_factor)
+
+        self._powerspecs = []
+        self._kk = []
+        # load the powerspecs
+        for scale_factor in self._scale_factors:
+            kk, pk, modes = np.loadtxt(powerspec_fn(scale_factor)).T
+
+            self._kk.append(kk)
+            self._powerspecs.append(pk)
+
+        self._kk = np.array(self._kk)
+        self._powerspecs = np.array(self._powerspecs)
+
+    @property
+    def kk(self):
+        return self._kk
+
+    @property
+    def powerspecs(self):
+        return self._powerspecs
+
+    @property
+    def scale_factors(self):
+        return self._scale_factors
+
+    def to_json(self):
+        with open(os.path.join(self.outdir, "SimulationICs.json"), 'w') as jsout:
+            json.dump(self.__dict__, jsout)
