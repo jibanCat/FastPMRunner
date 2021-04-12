@@ -11,6 +11,7 @@ as the point of this is to explore numerical approximations.
 
 I have also simplified this by:
 1. Removing the Alcock-Paczynski test which is a bit complicated to implement, and does not dominate the constraints.
+2. Removing the shot noise power which is close to zero
 """
 
 import os
@@ -127,6 +128,9 @@ class Likelihood:
         self.J0k_arr = j0k[:,:,np.newaxis]
         self.J2k_arr = j2k[:,:,np.newaxis]
 
+        #Precompute inverse covariance matrix
+        self.invcov = np.linalg.inv(self.cov)
+
     def loglkl(self, cosmo, data):
         """Compute the log-likelihood of the model, given the data and covariance"""
 
@@ -134,52 +138,37 @@ class Likelihood:
         h = cosmo.h()
 
         norm = 1.
-        Nmax = self.Nmax
         k0 = self.k0
 
         # Now load in (mean, sigma) for nuisance parameters that are analytically marginalized over
-        Pshotsig = 5e3
-        Pshotmean = 0.
-        Nmarg = 4 # number of parameters to marginalize over analytically
-
-        theory0vec = np.zeros((Nmax,Nmarg+1))
-        theory2vec = np.zeros((Nmax,Nmarg+1))
+        Nmarg = 0 # number of parameters to marginalize over analytically
 
         ## COMPUTE SPECTRA
         # Run CLASS-PT to get all components
-        all_theory = cosmo.get_pk_mult(self.kbins3*h,self.z, Nmax)
+        all_theory = cosmo.get_pk_mult(self.kbins3*h,self.z, self.Nmax)
 
-        # Generate the full theory model evaluated at the nuisance parameter means : this has all the EFT parameters removed.
+        # Generate the theory model from FastPMRunner
         theory2 = norm**2.*all_theory[18] +norm**4.*all_theory[24]
-        theory0 = norm**2.*all_theory[15] +norm**4.*all_theory[21] + Pshotmean
-
-        # Compute derivatives for nuisance parameters which enter the model linearly
-        dtheory2_dPshot = np.zeros_like(self.kbins3)
-
-        dtheory0_dPshot = np.ones_like(self.kbins3)
-
-        # Put all into a vector for simplicity
-        theory0vec = np.vstack([theory0,dtheory0_dPshot]).T
-        theory2vec = np.vstack([theory2,dtheory2_dPshot]).T
+        theory0 = norm**2.*all_theory[15] +norm**4.*all_theory[21]
 
         # Now do a Fourier-transform to include the window function
         factor = (exp(-1.*(self.kbins3*h/2.)**4.)*self.tmp_factor)[:,np.newaxis]
-        Pdiscrin0 = theory0vec*factor
-        Pdiscrin2 = theory2vec*factor
+        Pdiscrin0 = theory0*factor
+        Pdiscrin2 = theory2*factor
 
-        cm0 = np.fft.fft(Pdiscrin0,axis=0)/ Nmax
-        cm2 = np.fft.fft(Pdiscrin2,axis=0)/ Nmax
-        cmsym0 = np.zeros((Nmax+1,Nmarg+1),dtype=np.complex_)
-        cmsym2 = np.zeros((Nmax+1,Nmarg+1),dtype=np.complex_)
+        cm0 = np.fft.fft(Pdiscrin0,axis=0)/ self.Nmax
+        cm2 = np.fft.fft(Pdiscrin2,axis=0)/ self.Nmax
+        cmsym0 = np.zeros((self.Nmax+1,Nmarg+1),dtype=np.complex_)
+        cmsym2 = np.zeros((self.Nmax+1,Nmarg+1),dtype=np.complex_)
 
-        all_i = np.arange(Nmax+1)
-        f = (all_i+2-Nmax//2) < 1
+        all_i = np.arange(self.Nmax+1)
+        f = (all_i+2-self.Nmax//2) < 1
         k0t1 = (k0**(-self.etam[f]))[:,np.newaxis]
         k0t2 = (k0**(-self.etam[~f]))[:,np.newaxis]
-        cmsym0[f] = k0t1*np.conjugate(cm0[-all_i[f]+Nmax//2])
-        cmsym2[f] = k0t1*np.conjugate(cm2[-all_i[f]+Nmax//2])
-        cmsym0[~f] = k0t2*cm0[all_i[~f]-Nmax//2]
-        cmsym2[~f] = k0t2*cm2[all_i[~f]-Nmax//2]
+        cmsym0[f] = k0t1*np.conjugate(cm0[-all_i[f]+self.Nmax//2])
+        cmsym2[f] = k0t1*np.conjugate(cm2[-all_i[f]+self.Nmax//2])
+        cmsym0[~f] = k0t2*cm0[all_i[~f]-self.Nmax//2]
+        cmsym2[~f] = k0t2*cm2[all_i[~f]-self.Nmax//2]
 
         cmsym0[-1] = cmsym0[-1] / 2
         cmsym0[0] = cmsym0[0] / 2
@@ -191,20 +180,20 @@ class Likelihood:
         Xidiscrin0 = (xi0*self.W0 + 0.2*xi2*self.W2)*self.tmp_factor2
         Xidiscrin2 = (xi0*self.W2 + xi2*(self.W0 + 2.*(self.W2+self.W4)/7.))*self.tmp_factor2
 
-        cmr0 = np.fft.fft(Xidiscrin0,axis=0)/ Nmax
-        cmr2 = np.fft.fft(Xidiscrin2,axis=0)/ Nmax
+        cmr0 = np.fft.fft(Xidiscrin0,axis=0)/ self.Nmax
+        cmr2 = np.fft.fft(Xidiscrin2,axis=0)/ self.Nmax
 
-        cmsymr0 = np.zeros((Nmax+1,Nmarg+1),dtype=np.complex_)
-        cmsymr2 = np.zeros((Nmax+1,Nmarg+1),dtype=np.complex_)
+        cmsymr0 = np.zeros((self.Nmax+1,Nmarg+1),dtype=np.complex_)
+        cmsymr2 = np.zeros((self.Nmax+1,Nmarg+1),dtype=np.complex_)
 
-        arr_i = np.arange(Nmax+1)
-        f = (arr_i+2-Nmax//2)<1
+        arr_i = np.arange(self.Nmax+1)
+        f = (arr_i+2-self.Nmax//2)<1
         r0t1 = self.rmin**(-self.etamR[f])[:,np.newaxis]
         r0t2 = self.rmin**(-self.etamR[~f])[:,np.newaxis]
-        cmsymr0[f] = r0t1*np.conjugate(cmr0[-arr_i[f] + Nmax//2])
-        cmsymr2[f] = r0t1*np.conjugate(cmr2[-arr_i[f] + Nmax//2])
-        cmsymr0[~f] = r0t2*cmr0[arr_i[~f] - Nmax//2]
-        cmsymr2[~f] = r0t2*cmr2[arr_i[~f] - Nmax//2]
+        cmsymr0[f] = r0t1*np.conjugate(cmr0[-arr_i[f] + self.Nmax//2])
+        cmsymr2[f] = r0t1*np.conjugate(cmr2[-arr_i[f] + self.Nmax//2])
+        cmsymr0[~f] = r0t2*cmr0[arr_i[~f] - self.Nmax//2]
+        cmsymr2[~f] = r0t2*cmr2[arr_i[~f] - self.Nmax//2]
 
         cmsymr0[-1] = cmsymr0[-1] / 2
         cmsymr0[0] = cmsymr0[0] / 2
@@ -217,12 +206,6 @@ class Likelihood:
         P0int = np.asarray([interpolate.InterpolatedUnivariateSpline(self.kbins3,P0t[:,i])(self.k) for i in range(Nmarg+1)]).T
         P2int = np.asarray([interpolate.InterpolatedUnivariateSpline(self.kbins3,P2t[:,i])(self.k) for i in range(Nmarg+1)]).T
 
-        # Compute the modified covariance matrix after including the nuisance-parameter marginalization
-        dPshot_stack = np.hstack([P0int[:,4],P2int[:,4],0.,0.])
-
-        marg_covMM = self.cov + Pshotsig**2*np.outer(dPshot_stack,dPshot_stack)
-        invcov_margMM = np.linalg.inv(marg_covMM)
-
         # COMPUTE CHI^2 OF MODEL
         chi2 = 0.
 
@@ -230,10 +213,7 @@ class Likelihood:
         x1 = np.hstack([P0int[:,0]-self.Pk0,P2int[:,0]-self.Pk2])
 
         # Compute chi2
-        chi2 = np.inner(x1,np.inner(invcov_margMM,x1))
-
-        # Correct for the new covariance matrix determinant
-        chi2 += np.linalg.slogdet(marg_covMM)[1] - np.linalg.slogdet(self.cov)[1]
+        chi2 = np.inner(x1,np.inner(self.invcov,x1))
 
         # Compute log-likelihood
         loglkl = -0.5 * chi2
