@@ -63,15 +63,6 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
             self.Pk2[i] = float(line.split()[2])
         datafile.close()
 
-        # Load measured Alcock-Paczynski parameters from reconstructed data
-        datafile = open(os.path.join(self.data_directory, self.alpha_means), 'r')
-        for i in range(2):
-            line = datafile.readline()
-            while line.find('#') != -1:
-                line = datafile.readline()
-            self.alphas[i] = float(line.split()[0])
-        datafile.close()
-
         ## LOAD OTHER USEFUL FUNCTIONS
         self.Nmax=128
         self.W0 = np.zeros((self.Nmax,1))
@@ -146,7 +137,7 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
         Nmax = self.Nmax
         k0 = self.k0
 
-        z = self.z;
+        z = self.z
         fz = cosmo.scale_independent_growth_factor_f(z)
 
         # Now load in (mean, sigma) for nuisance parameters that are analytically marginalized over
@@ -242,10 +233,6 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
 
         # COMPUTE CHI^2 OF MODEL
         chi2 = 0.
-
-        # Alcock-Paczynski parameters at this cosmology [model - data]
-        alphapar = self.rdHfid/(cosmo.rs_drag()*cosmo.Hubble(self.z)) - self.alphas[0]
-        alphaperp = self.rdDAfid/(cosmo.rs_drag()/cosmo.angular_distance(self.z)) - self.alphas[1]
 
         # Compute [model - data] for P(k) multipoles
         x1 = np.hstack([P0int[:,0]-self.Pk0,P2int[:,0]-self.Pk2,alphapar,alphaperp])
