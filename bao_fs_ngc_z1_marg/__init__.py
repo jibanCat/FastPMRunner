@@ -8,11 +8,13 @@ For the equations see Section 3.2 of https://arxiv.org/abs/1909.05277
 
 I have removed all the 'theory model' parameters discussed at length
 as the point of this is to explore numerical approximations.
+
+I have also simplified this by:
+1. Removing the Alcock-Paczynski test which is a bit complicated to implement, and does not dominate the constraints.
 """
 
 import os
 import numpy as np
-from montepython.likelihood_class import Likelihood_prior
 from numpy.fft import fft, ifft , rfft, irfft , fftfreq
 from numpy import exp, log, log10, cos, sin, pi, cosh, sinh , sqrt
 from scipy.special import gamma,erf
@@ -21,29 +23,29 @@ from scipy.integrate import quad
 import scipy.integrate as integrate
 from scipy import special
 
-class bao_fs_ngc_z1_marg(Likelihood_prior):
-
-    # initialisation of the class is done within the parent Likelihood_prior. For
-    # this case, it does not differ, actually, from the __init__ method in
-    # Likelihood class.
-
-    def __init__(self,path,data,command_line):
+class Likelihood:
+    """Likelihood function for the BOSS power spectrum."""
+    def __init__(self):
         """Initialize the function, loading data and other useful functions that can be precomputed"""
 
-        Likelihood_prior.__init__(self,path,data,command_line)
+        self.measurements_file = 'ngc_z1/pk.dat'
+        self.covmat_file = 'ngc_z1/ngc_z1_unrec_mon+quad+alphas_cov_48bins.dat'
+        self.window_file = 'ngc_z1/window.dat'
+
+        # Specify k-range, redshift and nuisance parameters
+        self.ksize = 48
+        self.z      = 0.38
 
         ## LOAD IN DATA
-
         self.k = np.zeros(self.ksize,'float64')
         self.Pk0 = np.zeros(self.ksize,'float64')
         self.Pk2 = np.zeros(self.ksize,'float64')
-        self.alphas = np.zeros(2,'float64')
 
         self.cov = np.zeros(
             (2*self.ksize+2, 2*self.ksize+2), 'float64')
 
         # Load covariance matrix
-        datafile = open(os.path.join(self.data_directory, self.covmat_file), 'r')
+        datafile = open(self.covmat_file, 'r')
         for i in range(2*self.ksize+2):
             line = datafile.readline()
             while line.find('#') != -1:
@@ -53,7 +55,7 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
         datafile.close()
 
         # Load unreconstructed power spectrum
-        datafile = open(os.path.join(self.data_directory, self.measurements_file), 'r')
+        datafile = open(self.measurements_file, 'r')
         for i in range(self.ksize):
             line = datafile.readline()
             while line.find('#') != -1:
@@ -68,7 +70,7 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
         self.W0 = np.zeros((self.Nmax,1))
         self.W2 = np.zeros((self.Nmax,1))
         self.W4 = np.zeros((self.Nmax,1))
-        datafile = open(os.path.join(self.data_directory, self.window_file), 'r')
+        datafile = open(self.window_file, 'r')
         for i in range(self.Nmax):
             line = datafile.readline()
             while line.find('#') != -1:
@@ -132,13 +134,8 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
         h = cosmo.h()
 
         norm = 1.
-        i_s=repr(3)
-        a2 = 0.
         Nmax = self.Nmax
         k0 = self.k0
-
-        z = self.z
-        fz = cosmo.scale_independent_growth_factor_f(z)
 
         # Now load in (mean, sigma) for nuisance parameters that are analytically marginalized over
         Pshotsig = 5e3
@@ -151,9 +148,6 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
         ## COMPUTE SPECTRA
         # Run CLASS-PT to get all components
         all_theory = cosmo.get_pk_mult(self.kbins3*h,self.z, Nmax)
-
-        # Compute usual theory model
-        kinloop1 = self.kbins3 * h
 
         # Generate the full theory model evaluated at the nuisance parameter means : this has all the EFT parameters removed.
         theory2 = norm**2.*all_theory[18] +norm**4.*all_theory[24]
@@ -169,7 +163,6 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
         theory2vec = np.vstack([theory2,dtheory2_dPshot]).T
 
         # Now do a Fourier-transform to include the window function
-        i_arr = np.arange(Nmax)
         factor = (exp(-1.*(self.kbins3*h/2.)**4.)*self.tmp_factor)[:,np.newaxis]
         Pdiscrin0 = theory0vec*factor
         Pdiscrin2 = theory2vec*factor
@@ -195,7 +188,6 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
 
         xi0 = np.real(cmsym0[np.newaxis,:,:]*self.J0_arr).sum(axis=1)
         xi2 = np.real(cmsym2[np.newaxis,:,:]*self.J2_arr).sum(axis=1)
-        i_arr = np.arange(Nmax)
         Xidiscrin0 = (xi0*self.W0 + 0.2*xi2*self.W2)*self.tmp_factor2
         Xidiscrin2 = (xi0*self.W2 + xi2*(self.W0 + 2.*(self.W2+self.W4)/7.))*self.tmp_factor2
 
@@ -235,10 +227,10 @@ class bao_fs_ngc_z1_marg(Likelihood_prior):
         chi2 = 0.
 
         # Compute [model - data] for P(k) multipoles
-        x1 = np.hstack([P0int[:,0]-self.Pk0,P2int[:,0]-self.Pk2,alphapar,alphaperp])
+        x1 = np.hstack([P0int[:,0]-self.Pk0,P2int[:,0]-self.Pk2])
 
         # Compute chi2
-        chi2 = np.inner(x1,np.inner(invcov_margMM,x1));
+        chi2 = np.inner(x1,np.inner(invcov_margMM,x1))
 
         # Correct for the new covariance matrix determinant
         chi2 += np.linalg.slogdet(marg_covMM)[1] - np.linalg.slogdet(self.cov)[1]
