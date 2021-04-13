@@ -19,10 +19,7 @@ import os
 import numpy as np
 from numpy.fft import fft, ifft , rfft, irfft , fftfreq
 from numpy import exp, log, log10, cos, sin, pi, cosh, sinh , sqrt
-from scipy.special import gamma,erf
 from scipy import interpolate
-from scipy.integrate import quad
-import scipy.integrate as integrate
 from scipy import special
 from FastPMRunner.simulationic import SimulationICs
 
