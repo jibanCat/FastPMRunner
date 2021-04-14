@@ -46,11 +46,11 @@ class Likelihood:
 
         # Load covariance matrix
         datafile = open(self.covmat_file, 'r')
-        for i in range(2*self.ksize+2):
+        for i in range(self.ksize):
             line = datafile.readline()
             while line.find('#') != -1:
                 line = datafile.readline()
-            for j in range(2*self.ksize+2):
+            for j in range(self.ksize):
                 self.cov[i,j] = float(line.split()[j])
         datafile.close()
 
