@@ -41,8 +41,7 @@ class Likelihood:
         self.Pk0 = np.zeros(self.ksize,'float64')
         self.Pk2 = np.zeros(self.ksize,'float64')
 
-        self.cov = np.zeros(
-            (2*self.ksize+2, 2*self.ksize+2), 'float64')
+        self.cov = np.zeros((self.ksize, self.ksize), 'float64')
 
         # Load covariance matrix
         datafile = open(self.covmat_file, 'r')
