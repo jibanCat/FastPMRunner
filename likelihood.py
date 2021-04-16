@@ -23,6 +23,8 @@ from scipy import interpolate
 from scipy import special
 from FastPMRunner.simulationic import SimulationICs
 
+from matplotlib import pyplot as plt
+
 class Likelihood:
     """Likelihood function for the BOSS power spectrum."""
     def __init__(self):
@@ -155,8 +157,13 @@ class Likelihood:
         cmsym0[-1] = cmsym0[-1] / 2
         cmsym0[0] = cmsym0[0] / 2
 
-        xi0 = np.real(cmsym0*self.J0_arr).sum(axis=1)
+        # cmsym0: (129, ); self.J0_arr: (128, 129, 1)
+        xi0 = np.real(cmsym0[:, None]*self.J0_arr).sum(axis=1)
+        #  xi0: (128, 1);; W0: (128, 1); tmp_factor2: (128, 1)
         Xidiscrin0 = (xi0*self.W0)*self.tmp_factor2
+
+        # remove the last dimension: (Nmax, 1) -> (Nmax)
+        Xidiscrin0 = Xidiscrin0[:, 0]
 
         cmr0 = np.fft.fft(Xidiscrin0)/ Nmax
 
@@ -171,11 +178,12 @@ class Likelihood:
         cmsymr0[-1] = cmsymr0[-1] / 2
         cmsymr0[0] = cmsymr0[0] / 2
 
-        P0t = np.real(cmsymr0*self.J0k_arr).sum(axis=1)
+        # cmsymr0 (129, ); J0k_arr: (128, 129, 1)
+        P0t = np.real(cmsymr0[:, None]*self.J0k_arr).sum(axis=1)
         P0int = interpolate.InterpolatedUnivariateSpline(self.kbins3,P0t)(self.k)
         return P0int
 
-    def loglkl(self, params, box=384, npart=128, timesteps=10):
+    def loglkl(self, params, box=384, npart=128, timesteps=10, outdir: str = "loglike/"):
         """Compute the log-likelihood of the model, given the data and covariance loaded in __init__.
         The cosmology and model parameters are put in the params list.
         The fastpm accuracy parameters box, npart and timesteps are kw args.
@@ -204,8 +212,10 @@ class Likelihood:
                             npart = npart,
                             timesteps = timesteps,
                             redend = self.z,
+                            outdir = outdir,
                             )
         sim.make_simulation()
+        # -1: the final snapshot: z = redend
         powerspec = sim.powerspecs[-1]
         kk = sim.kk[-1]
         #Galaxy power spectrum with multipoles, for reference.
@@ -219,14 +229,19 @@ class Likelihood:
         # Now do a Fourier-transform to include the window function
         factor = np.exp(-1.*(self.kbins3*hubble/2.)**4.)*self.tmp_factor
         factint = interpolate.InterpolatedUnivariateSpline(self.kbins3*hubble, factor)
-        Pdisc = powgalint(self.k)*factint(self.k)
+        # interpolate to simulated power to kbins3
+        Pdisc = powgalint(self.kbins3)*factor
+
+        # limit the chi2 only computed within the range of self.k
+        ind = (self.kbins3 > self.k.min()) & (self.kbins3 < self.k.max())
 
         # Now compute chi^2: this is:
         #(Pth W - Pexp)^T C^-1 (Pth W - Pexp)
-        chi2 = np.inner(Pdisc[:,0],np.inner(self.invcovWW,Pdisc[:,0]))
-        chi2 += np.inner(self.Pk0,np.inner(self.invcov,self.Pk0))
-        chi2 += -2.*np.inner(Pdisc[:,0],np.inner(self.invcovW,self.Pk0))
+        chi2 = np.inner(Pdisc[ind], np.inner(self.invcovWW[:, ind], Pdisc[ind])[ind])
+        chi2 += np.inner(self.Pk0, np.inner(self.invcov, self.Pk0))
+        chi2 += -2.*np.inner(Pdisc[ind], np.inner(self.invcovW[ind, :], self.Pk0))
 
         # Compute log-likelihood
         loglkl = -0.5 * chi2
+
         return loglkl
