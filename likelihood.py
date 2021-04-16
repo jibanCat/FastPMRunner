@@ -23,8 +23,6 @@ from scipy import interpolate
 from scipy import special
 from FastPMRunner.simulationic import SimulationICs
 
-from matplotlib import pyplot as plt
-
 class Likelihood:
     """Likelihood function for the BOSS power spectrum."""
     def __init__(self):
