@@ -15,10 +15,8 @@ I have also simplified this by:
 3. Only compute the monopole terms
 """
 
-import os
 import numpy as np
-from numpy.fft import fft, ifft , rfft, irfft , fftfreq
-from numpy import exp, log, log10, cos, sin, pi, cosh, sinh , sqrt
+from numpy import exp, log, pi
 from scipy import interpolate
 from scipy import special
 from FastPMRunner.simulationic import SimulationICs
@@ -205,7 +203,7 @@ class Likelihood:
                             timesteps = timesteps,
                             redend = self.z,
                             )
-        out, err = sim.make_simulation()
+        sim.make_simulation()
         powerspec = sim.powerspecs[-1]
         #Units are h/Mpc, I assume, so convert to 1/Mpc
         kk = sim.kk[-1] * hubble
