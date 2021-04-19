@@ -66,9 +66,9 @@ class Likelihood:
 
         ## Window function: only W0 is used.
         self.Nmax=128
-        self.W0 = np.zeros((self.Nmax,1))
-        self.W2 = np.zeros((self.Nmax,1))
-        self.W4 = np.zeros((self.Nmax,1))
+        self.W0 = np.zeros((self.Nmax))
+        self.W2 = np.zeros((self.Nmax))
+        self.W4 = np.zeros((self.Nmax))
         datafile = open(self.window_file, 'r')
         for i in range(self.Nmax):
             line = datafile.readline()
@@ -95,7 +95,7 @@ class Likelihood:
 
         self.kbins3 = self.k0 * exp(Delta * i_arr)
         self.tmp_factor = exp(-1.*b*i_arr*Delta)
-        self.tmp_factor2 = exp(-1.*bR*i_arr*Delta_r)[:,np.newaxis]
+        self.tmp_factor2 = exp(-1.*bR*i_arr*Delta_r)
 
         jsNm = np.arange(-self.Nmax//2,self.Nmax//2+1,1)
         self.etam = b + 2*1j*pi*(jsNm)/self.Nmax/Delta
@@ -107,8 +107,7 @@ class Likelihood:
             J0 = -1.*sin_nu*r_pow*gam/(2.*pi**2.)
             return J0
 
-        j0 = J_func(rtab.reshape(-1,1),self.etam.reshape(1,-1))
-        self.J0_arr = j0[:,:,np.newaxis]
+        self.J0_arr = J_func(rtab.reshape(-1,1),self.etam.reshape(1,-1))
 
         self.etamR = bR + 2*1j*pi*(jsNm)/self.Nmax/Delta_r
 
@@ -119,8 +118,7 @@ class Likelihood:
             J0k = -1.*k_pow*gam*sin_nu*(4.*pi)
             return J0k
 
-        j0k = Jk_func(self.kbins3.reshape(-1,1),self.etamR.reshape(1,-1))
-        self.J0k_arr = j0k[:,:,np.newaxis]
+        self.J0k_arr = Jk_func(self.kbins3.reshape(-1,1),self.etamR.reshape(1,-1))
 
         #Precompute inverse covariance matrix
         self.invcov = np.linalg.inv(self.cov)
@@ -135,16 +133,17 @@ class Likelihood:
         self.invcovW = np.matmul(self.response_matrix.T,self.invcov)
         self.invcovWW = np.matmul(self.response_matrix.T,np.matmul(self.invcov,self.response_matrix))
 
-    def window_response(self,k_index):
+    def window_response(self, k_index):
         """Window function. This is from 1607.03150 and includes only the monopole.
         Accurate for k > 0.0015."""
+
         Nmax = self.Nmax
         k0 = self.k0
 
         Pdiscrin0 = np.zeros(Nmax)
         Pdiscrin0[k_index] = 1
 
-        cm0 = np.fft.fft(Pdiscrin0)/ Nmax
+        cm0 = np.fft.fft(Pdiscrin0, axis=0)/ Nmax
         cmsym0 = np.zeros(Nmax+1,dtype=np.complex_)
 
         all_i = np.arange(Nmax+1)
@@ -156,6 +155,7 @@ class Likelihood:
         cmsym0[0] = cmsym0[0] / 2
 
         xi0 = np.real(cmsym0*self.J0_arr).sum(axis=1)
+
         Xidiscrin0 = (xi0*self.W0)*self.tmp_factor2
 
         cmr0 = np.fft.fft(Xidiscrin0)/ Nmax
@@ -205,9 +205,10 @@ class Likelihood:
                             timesteps = timesteps,
                             redend = self.z,
                             )
-        sim.make_simulation()
+        out, err = sim.make_simulation()
         powerspec = sim.powerspecs[-1]
-        kk = sim.kk[-1]
+        #Units are h/Mpc, I assume, so convert to 1/Mpc
+        kk = sim.kk[-1] * hubble
         #Galaxy power spectrum with multipoles, for reference.
         #Powergal = lambda mu, l: (linear_bias + ff * mu**2)**2 * sim.powerspecs[-1]
         #For higher moments we should do a multipole integral. Here just use l = 0 for simplicity.
@@ -217,13 +218,14 @@ class Likelihood:
         powgalint = interpolate.InterpolatedUnivariateSpline(kk,powergal)
 
         # Now do a Fourier-transform to include the window function
-        factor = np.exp(-1.*(self.kbins3*hubble/2.)**4.)*self.tmp_factor
-        factint = interpolate.InterpolatedUnivariateSpline(self.kbins3*hubble, factor)
-        Pdisc = powgalint(self.k)*factint(self.k)
+        factor = (np.exp(-1.*(self.kbins3*hubble/2.)**4.)*self.tmp_factor)
+
+        #In the bins of the covariance matrix
+        Pdisc = powgalint(self.kbins3) * factor
 
         # Now compute chi^2: this is:
         #(Pth W - Pexp)^T C^-1 (Pth W - Pexp)
-        chi2 = np.inner(Pdisc[:,0],np.inner(self.invcovWW,Pdisc[:,0]))
+        chi2 = np.inner(Pdisc,np.inner(self.invcovWW,Pdisc))
         chi2 += np.inner(self.Pk0,np.inner(self.invcov,self.Pk0))
         chi2 += -2.*np.inner(Pdisc[:,0],np.inner(self.invcovW,self.Pk0))
 
