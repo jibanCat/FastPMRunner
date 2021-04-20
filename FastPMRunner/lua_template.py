@@ -27,7 +27,7 @@ def simple_lua_string(
     """
 
     lua_template = '''-- parameter file
------- Size of the simulation -------- 
+------ Size of the simulation --------
 
 -- For Testing
 nc = {nc}
@@ -40,7 +40,7 @@ time_step = linspace({time_start}, {time_end}, {timesteps})
 output_redshifts= {{9.0, 2.0, 1.0, 0.0}}  -- redshifts of output
 
 -- Cosmology --
-omega_m = {omega_m}
+Omega_m = {omega_m}
 h       = {h}
 scalar_amp = {scalar_amp}
 scalar_spectral_index = {scalar_spectral_index}

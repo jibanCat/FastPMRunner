@@ -197,7 +197,7 @@ class Likelihood:
                             omega0 = omega0,
                             scalar_amp = scalar_amp,
                             ns = 0.9649,
-                            fastpm_bin = "fastpm",
+                            fastpm_bin = "fastpm/src/fastpm",
                             box = box,
                             npart = npart,
                             timesteps = timesteps,
