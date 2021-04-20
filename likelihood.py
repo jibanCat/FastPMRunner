@@ -225,7 +225,7 @@ class Likelihood:
         #(Pth W - Pexp)^T C^-1 (Pth W - Pexp)
         chi2 = np.inner(Pdisc,np.inner(self.invcovWW,Pdisc))
         chi2 += np.inner(self.Pk0,np.inner(self.invcov,self.Pk0))
-        chi2 += -2.*np.inner(Pdisc[:,0],np.inner(self.invcovW,self.Pk0))
+        chi2 += -2.*np.inner(Pdisc,np.inner(self.invcovW,self.Pk0))
 
         # Compute log-likelihood
         loglkl = -0.5 * chi2
