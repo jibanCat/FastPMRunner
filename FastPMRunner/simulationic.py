@@ -189,7 +189,7 @@ class SimulationICs(object):
 
     def set_powerspec(self):
         """Set power spectrum"""
-        self._scale_factors = np.linspace(self.time_start, self.time_end, self.timesteps + 1)
+        self._scale_factors = np.linspace(self.time_start, self.time_end, self.timesteps)
 
         powerspec_fn = lambda scale_factor: "{}_{:.4f}.txt".format(self.write_powerspectrum, scale_factor)
 
