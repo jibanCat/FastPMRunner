@@ -173,7 +173,7 @@ class SimulationICs(object):
         #Single threading for fastpm
         env = os.environ.copy()
         env["OMP_NUM_THREADS"] = "1"
-        process = subprocess.run(bash_command.split(), check=True, env=env)
+        process = subprocess.run(bash_command.split(), check=True, env=env, capture_output=True)
         output = process.stdout
         # write the output
         with open(os.path.join(self.outdir, "message.out"), "w") as f:
