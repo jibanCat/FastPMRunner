@@ -205,6 +205,7 @@ class Likelihood:
                             )
         sim.make_simulation()
         powerspec = sim.powerspecs[-1]
+        assert abs(1/sim._scale_factors[-1] -1 - self.z) < 1e-4
         #Units are h/Mpc, I assume, so convert to 1/Mpc
         kk = sim.kk[-1] * hubble
         #Galaxy power spectrum with multipoles, for reference.
