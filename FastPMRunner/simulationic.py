@@ -32,7 +32,7 @@ class SimulationICs(object):
                  less interactions, smaller box the particle interactions will be
                  more intense.
     npart      - Cube root of number of particles. This controls the resolution
-                 of a N-body simulation. 
+                 of a N-body simulation.
     redshift   - redshift at which to generate ICs
     omegab     - baryon density.
     omegam     - Total matter density at z=0. (omega_m = omega_b + omega_cdm)
@@ -170,9 +170,11 @@ class SimulationICs(object):
         )
         print(bash_command.split())
 
-        process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
-        output, error = process.communicate()
-
+        #Single threading for fastpm
+        env = os.environ.copy()
+        env["OMP_NUM_THREADS"] = "1"
+        process = subprocess.run(bash_command.split(), check=True, env=env, capture_output=True)
+        output = process.stdout
         # write the output
         with open(os.path.join(self.outdir, "message.out"), "w") as f:
             f.write(output.decode('utf-8'))
@@ -183,11 +185,11 @@ class SimulationICs(object):
         # set power spec into variables
         self.set_powerspec()
 
-        return output, error
+        return output, process.stderr
 
     def set_powerspec(self):
         """Set power spectrum"""
-        self._scale_factors = np.linspace(self.time_start, self.time_end, self.timesteps + 1)
+        self._scale_factors = np.linspace(self.time_start, self.time_end, self.timesteps)
 
         powerspec_fn = lambda scale_factor: "{}_{:.4f}.txt".format(self.write_powerspectrum, scale_factor)
 

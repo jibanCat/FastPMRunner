@@ -13,7 +13,7 @@ from FastPMRunner.simulationic import SimulationICs
 def one_parameter_hubble(fastpm_bin: str = "fastpm"):
     """
     Vary one parameter: hubble parameter, h, which is H0 / (100 km/s/Mpc)
-    
+
     Parameters:
     ----
     fastpm_bin: your fastpm binary
@@ -22,7 +22,7 @@ def one_parameter_hubble(fastpm_bin: str = "fastpm"):
     folder = "simulation_files/"
     if not os.path.exists(folder):
         os.mkdir(folder)
-    
+
     # simulation sub folder: containing files from each simulation
     subfolder_fn = lambda number : os.path.join(folder, "hubble_{:04d}".format(number))
 
@@ -35,7 +35,7 @@ def one_parameter_hubble(fastpm_bin: str = "fastpm"):
 
         # excute the simulation
         tic = time.time()
-        print("Performing simultion {} ... ".format(i), end="")
+        print("Performing simulation {} ... ".format(i), end="")
         sim.make_simulation()
 
         print("took {:.3g} seconds".format(time.time() - tic))
