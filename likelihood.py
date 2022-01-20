@@ -206,8 +206,8 @@ class Likelihood:
         sim.make_simulation()
         powerspec = sim.powerspecs[-1]
         assert abs(1/sim._scale_factors[-1] -1 - self.z) < 1e-4
-        #Units are h/Mpc, I assume, so convert to 1/Mpc
-        kk = sim.kk[-1] * hubble
+        #Units are h/Mpc. Both FastPM and NGC data are using Mpc/h
+        kk = sim.kk[-1] 
         #Galaxy power spectrum with multipoles, for reference.
         #Powergal = lambda mu, l: (linear_bias + ff * mu**2)**2 * sim.powerspecs[-1]
         #For higher moments we should do a multipole integral. Here just use l = 0 for simplicity.
