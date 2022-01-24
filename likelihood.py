@@ -182,6 +182,8 @@ class Likelihood:
         1 - Omega_0 the total matter density
         2 - scalar_amp the primordial amplitude of fluctuations at k = 0.05 Mpc^{-1}
         3 - The linear bias, a variable which encodes how much galaxies differ from cold dark matter.
+
+        TODO: check the window function again. Now this likelihood has no window function implemented.
         """
         #Cosmology parameters
         hubble = params[0]
@@ -216,17 +218,21 @@ class Likelihood:
         powergal = linear_bias**2 * powerspec
         powgalint = interpolate.InterpolatedUnivariateSpline(kk,powergal)
 
-        # Now do a Fourier-transform to include the window function
-        factor = (np.exp(-1.*(self.kbins3*hubble/2.)**4.)*self.tmp_factor)
-
-        #In the bins of the covariance matrix
-        Pdisc = powgalint(self.kbins3) * factor
+        # Remove window function implementation, simply interpolate the simulation onto
+        # data k bins. Assume the covariance has the same k bins as the NGC power spectrum.
+        # TODO: check the window function again.
+        # 
+        # # Now do a Fourier-transform to include the window function
+        # factor = (np.exp(-1.*(self.kbins3*hubble/2.)**4.)*self.tmp_factor)
+        # #In the bins of the covariance matrix
+        # Pdisc = powgalint(self.kbins3) * factor
+        Pdisc = powgalint(self.k)
 
         # Now compute chi^2: this is:
         #(Pth W - Pexp)^T C^-1 (Pth W - Pexp)
-        chi2 = np.inner(Pdisc,np.inner(self.invcovWW,Pdisc))
+        chi2 = np.inner(Pdisc,np.inner(self.invcov,Pdisc))
         chi2 += np.inner(self.Pk0,np.inner(self.invcov,self.Pk0))
-        chi2 += -2.*np.inner(Pdisc,np.inner(self.invcovW,self.Pk0))
+        chi2 += -2.*np.inner(Pdisc,np.inner(self.invcov,self.Pk0))
 
         # Compute log-likelihood
         loglkl = -0.5 * chi2
